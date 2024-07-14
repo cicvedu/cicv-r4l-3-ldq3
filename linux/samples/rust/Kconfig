@@ -163,4 +163,9 @@ config SAMPLE_RUST_SELFTESTS
 
 	  If unsure, say N.
 
+config SAMPLE_RUST_HELLO
+  tristate "Print Helloworld in Rust"
+  help
+    Something goes here
+
 endif # SAMPLES_RUST
