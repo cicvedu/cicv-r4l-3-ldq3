@@ -7,16 +7,17 @@ use core::result::Result::Err;
 use kernel::prelude::*;
 use kernel::sync::Mutex;
 use kernel::{chrdev, file};
-use kernel::io_buffer::IoBufferReader;
 use kernel::io_buffer::IoBufferWriter;
+use kernel::io_buffer::IoBufferReader;
+use kernel::task::Task;
 
 const GLOBALMEM_SIZE: usize = 0x1000;
 
 module! {
     type: RustChrdev,
-    name: "rust_chrdev",
-    author: "Rust for Linux Contributors",
-    description: "Rust character device sample",
+    name: "completion",
+    author: "ldq3",
+    description: "Refactoring module Completion with Rust.",
     license: "GPL",
 }
 
@@ -34,6 +35,7 @@ impl file::Operations for RustFile {
     type Data = Box<Self>;
 
     fn open(_shared: &(), _file: &file::File) -> Result<Box<Self>> {
+        pr_info!("open() is invoked\n");
         Ok(
             Box::try_new(RustFile {
                 inner: &GLOBALMEM_BUF
@@ -42,18 +44,39 @@ impl file::Operations for RustFile {
     }
 
     fn write(this: &Self, _file: &file::File, reader: &mut impl IoBufferReader, offset: u64) -> Result<usize> {
+        pr_info!("write() is invoked\n");
+
+        let task = Task::current();
+
+        pr_info!(
+            "process {} awakening the readers...\n",
+            task.pid()
+        );
         let offset = offset.try_into()?;
         let mut vec = this.inner.lock();
         let len = core::cmp::min(reader.len(), vec.len().saturating_sub(offset));
         reader.read_slice(&mut vec[offset..][..len])?;
+        
         Ok(len)
     }
 
     fn read(this: &Self, _file: &file::File, writer: &mut impl IoBufferWriter, offset: u64) -> Result<usize> {
+        pr_info!("read() is invoked\n");
+
+        let task = Task::current();
+
+        pr_info!(
+            "process {} is going to sleep\n",
+            task.pid()
+        );
         let offset = offset.try_into()?;
         let vec = this.inner.lock();
         let len = core::cmp::min(writer.len(), vec.len().saturating_sub(offset));
         writer.write_slice(&vec[offset..][..len])?;
+        pr_info!(
+            "awoken {}\n",
+            task.pid()
+        );
         Ok(len)
     }
 }
@@ -64,7 +87,7 @@ struct RustChrdev {
 
 impl kernel::Module for RustChrdev {
     fn init(name: &'static CStr, module: &'static ThisModule) -> Result<Self> {
-        pr_info!("Rust character device sample (init)\n");
+        pr_info!("completion_example is loaded\n");
 
         let mut chrdev_reg = chrdev::Registration::new_pinned(name, 0, module)?;
 
@@ -80,6 +103,6 @@ impl kernel::Module for RustChrdev {
 
 impl Drop for RustChrdev {
     fn drop(&mut self) {
-        pr_info!("Rust character device sample (exit)\n");
+        pr_info!("completion_example is unloaded\n");
     }
 }
