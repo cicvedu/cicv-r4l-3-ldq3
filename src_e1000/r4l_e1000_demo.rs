@@ -297,6 +297,8 @@ struct E1000DrvPrvData {
 
 impl driver::DeviceRemoval for E1000DrvPrvData {
     fn device_remove(&self) {
+        // 需要释放 NetDevice？
+
         pr_info!("Rust for linux e1000 driver demo (device_remove)\n");
     }
 }
@@ -353,8 +355,6 @@ impl net::NapiPoller for NapiHandler {
 }
 
 struct E1000Drv {}
-
-
 
 impl pci::Driver for E1000Drv {
 
@@ -466,12 +466,11 @@ impl pci::Driver for E1000Drv {
         )?)
     }
 
-    fn remove(pci_dev: &mut pci::Device, data: &Self::Data) {
-        pr_info!("PCI Driver remove\n");
-        pci_dev.release_selected_regions(data.bar_mask);
-        drop(data);
+    fn remove(data: &Self::Data) {
+        pr_info!("Rust for linux e1000 driver demo (remove)\n");
     }
 }
+
 struct E1000KernelMod {
     _dev: Pin<Box<driver::Registration::<pci::Adapter<E1000Drv>>>>,
 }
@@ -488,7 +487,7 @@ impl kernel::Module for E1000KernelMod {
 }
 
 impl Drop for E1000KernelMod {
-    fn drop(&mut self) {
+    fn drop(&mut self) {        
         pr_info!("Rust for linux e1000 driver demo (exit)\n");
     }
 }
